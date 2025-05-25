@@ -1,0 +1,509 @@
+{
+  "meta": {
+    "instanceId": "YOUR_INSTANCE_ID_REPLACE_IF_NEEDED"
+  },
+  "workflows": [
+    {
+      "active": false,
+      "nodes": [
+        {
+          "parameters": {
+            "triggerTimes": {
+              "item": [
+                {
+                  "mode": "everyDay",
+                  "hour": 6,
+                  "minute": 0
+                }
+              ]
+            },
+            "timezone": "America/Denver"
+          },
+          "id": "3f8f7a9b-0a94-4772-9a21-2e6345f1191a",
+          "name": "Cron (6AM)",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "typeVersion": 1,
+          "position": [
+            450,
+            300
+          ]
+        },
+        {
+          "parameters": {
+            "model": "gpt-3.5-turbo",
+            "options": {}
+          },
+          "id": "a1b2c3d4-e5f6-7890-1234-abcdef123456",
+          "name": "AI Agent (Kevin del futuro)",
+          "type": "n8n-nodes-base.openAiChat",
+          "typeVersion": 1,
+          "position": [
+            650,
+            300
+          ],
+          "credentials": {}
+        },
+        {
+          "parameters": {
+            "keepOnlySet": true,
+            "values": {
+              "string": [
+                {
+                  "name": "mensaje_ia",
+                  "value": "={{ $json.choices[0].message.content.mensaje }}"
+                },
+                {
+                  "name": "tarea_ia",
+                  "value": "={{ $json.choices[0].message.content.tarea }}"
+                },
+                {
+                  "name": "categoria_ia",
+                  "value": "={{ $json.choices[0].message.content.categoria }}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "id": "b2c3d4e5-f6a7-8901-2345-bcdefa123456",
+          "name": "Set (Extrae JSON IA)",
+          "type": "n8n-nodes-base.set",
+          "typeVersion": 1.1,
+          "position": [
+            850,
+            300
+          ]
+        },
+        {
+          "parameters": {
+            "voiceId": "",
+            "text": "={{ $json.mensaje_ia }}"
+          },
+          "id": "c3d4e5f6-a7b8-9012-3456-cdefab123456",
+          "name": "ElevenLabs (Texto a Voz)",
+          "type": "n8n-nodes-elevenlabs.textToSpeech",
+          "typeVersion": 1,
+          "position": [
+            1050,
+            300
+          ],
+          "credentials": {}
+        },
+        {
+          "parameters": {
+            "conditions": {
+              "string": [
+                {
+                  "value1": "={{ $binary.data ? true : false }}",
+                  "operation": "boolean",
+                  "value2": true
+                }
+              ]
+            }
+          },
+          "id": "d4e5f6a7-b8c9-0123-4567-defabc123456",
+          "name": "IF (¿Audio OK?)",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 1,
+          "position": [
+            1250,
+            300
+          ]
+        },
+        {
+          "parameters": {
+            "chatId": "",
+            "text": "={{ $json.mensaje_ia }}\n\nTarea de hoy ({{ $json.categoria_ia }}): {{ $json.tarea_ia }}",
+            "additionalFields": {
+              "file": "data"
+            }
+          },
+          "id": "e5f6a7b8-c9d0-1234-5678-efabcd123456",
+          "name": "Telegram (Audio y Texto)",
+          "type": "n8n-nodes-base.telegram",
+          "typeVersion": 1.1,
+          "position": [
+            1450,
+            200
+          ],
+          "credentials": {}
+        },
+        {
+          "parameters": {
+            "chatId": "",
+            "text": "Kevin dice: {{ $json.mensaje_ia }}\n\nNo se pudo generar el audio, pero aquí tienes tu tarea para hoy ({{ $json.categoria_ia }}): {{ $json.tarea_ia }}"
+          },
+          "id": "f6a7b8c9-d0e1-2345-6789-fabcde123456",
+          "name": "Telegram (Solo Texto - Fallback)",
+          "type": "n8n-nodes-base.telegram",
+          "typeVersion": 1.1,
+          "position": [
+            1450,
+            400
+          ],
+          "credentials": {}
+        },
+        {
+          "parameters": {
+            "baseId": "",
+            "tableId": "",
+            "fields": {
+              "columns": [
+                {
+                  "column": "Fecha",
+                  "value": "={{ $now.toFormat('yyyy-MM-dd HH:mm:ss') }}"
+                },
+                {
+                  "column": "Tarea",
+                  "value": "={{ $('Set (Extrae JSON IA)').item.json.tarea_ia }}"
+                },
+                {
+                  "column": "Categoria",
+                  "value": "={{ $('Set (Extrae JSON IA)').item.json.categoria_ia }}"
+                },
+                {
+                  "column": "Mensaje",
+                  "value": "={{ $('Set (Extrae JSON IA)').item.json.mensaje_ia }}"
+                },
+                {
+                  "column": "AudioGenerado",
+                  "value": "={{ $('IF (¿Audio OK?)').branchIndex === 0 ? 'Sí' : 'No' }}"
+                }
+              ]
+            }
+          },
+          "id": "a0b1c2d3-e4f5-6789-0123-456789abcdef",
+          "name": "Airtable (Registro Diario)",
+          "type": "n8n-nodes-base.airtableAppend",
+          "typeVersion": 1,
+          "position": [
+            1700,
+            300
+          ],
+          "credentials": {}
+        }
+      ],
+      "connections": {
+        "Cron (6AM)": {
+          "main": [
+            [
+              {
+                "node": "AI Agent (Kevin del futuro)",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "AI Agent (Kevin del futuro)": {
+          "main": [
+            [
+              {
+                "node": "Set (Extrae JSON IA)",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Set (Extrae JSON IA)": {
+          "main": [
+            [
+              {
+                "node": "ElevenLabs (Texto a Voz)",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "ElevenLabs (Texto a Voz)": {
+          "main": [
+            [
+              {
+                "node": "IF (¿Audio OK?)",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "IF (¿Audio OK?)": {
+          "main": [
+            [
+              {
+                "node": "Telegram (Audio y Texto)",
+                "type": "main",
+                "index": 0
+              }
+            ],
+            [
+              {
+                "node": "Telegram (Solo Texto - Fallback)",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Telegram (Audio y Texto)": {
+          "main": [
+            [
+              {
+                "node": "Airtable (Registro Diario)",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Telegram (Solo Texto - Fallback)": {
+          "main": [
+            [
+              {
+                "node": "Airtable (Registro Diario)",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      },
+      "settings": {},
+      "id": "workflow_motivacion_diaria",
+      "name": "Motivación Diaria (Futuro Millonario)",
+      "tags": []
+    },
+    {
+      "active": false,
+      "nodes": [
+        {
+          "parameters": {},
+          "id": "b1c2d3e4-f5a6-7890-1234-bcdefa123457",
+          "name": "Telegram Trigger (Respuesta Usuario)",
+          "type": "n8n-nodes-base.telegramTrigger",
+          "typeVersion": 1,
+          "position": [
+            450,
+            600
+          ],
+          "credentials": {}
+        },
+        {
+          "parameters": {
+            "conditions": {
+              "boolean": [
+                {
+                  "value1": "={{ $json.message.audio || $json.message.voice ? true : false }}",
+                  "value2": true
+                }
+              ]
+            }
+          },
+          "id": "c2d3e4f5-a6b7-8901-2345-cdefab123457",
+          "name": "IF (¿Es audio o texto?)",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 1,
+          "position": [
+            650,
+            600
+          ]
+        },
+        {
+          "parameters": {
+            "model": "whisper-1",
+            "responseFormat": "json",
+            "binaryData": true,
+            "options": {}
+          },
+          "id": "d3e4f5a6-b7c8-9012-3456-defabc123457",
+          "name": "OpenAI (Transcribe Audio)",
+          "type": "n8n-nodes-base.openAiWhisper",
+          "typeVersion": 1,
+          "position": [
+            850,
+            500
+          ],
+          "credentials": {}
+        },
+        {
+          "parameters": {
+            "keepOnlySet": true,
+            "values": {
+              "string": [
+                {
+                  "name": "respuesta_usuario",
+                  "value": "={{ $('IF (¿Es audio o texto?)').branchIndex === 0 ? $('OpenAI (Transcribe Audio)').item.json.text : $json.message.text }}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "id": "e4f5a6b7-c8d9-0123-4567-efabcd123457",
+          "name": "Set (Respuesta Procesada)",
+          "type": "n8n-nodes-base.set",
+          "typeVersion": 1.1,
+          "position": [
+            1050,
+            600
+          ]
+        },
+        {
+          "parameters": {
+            "model": "gpt-3.5-turbo",
+            "messages": {
+              "message": [
+                {
+                  "role": "system",
+                  "content": "Eres un asistente experto en productividad. Dada la siguiente respuesta de un usuario a su tarea/motivación del día, genera un mini plan de acción personalizado con 2-3 pasos claros y concisos para ayudarle a progresar o superar cualquier bloqueo. El plan debe ser práctico y motivador. Responde únicamente con el plan, sin frases introductorias ni despedidas."
+                },
+                {
+                  "role": "user",
+                  "content": "={{ $json.respuesta_usuario }}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "id": "f5a6b7c8-d9e0-1234-5678-fabcde123457",
+          "name": "OpenAI (Genera Plan de Acción)",
+          "type": "n8n-nodes-base.openAiChat",
+          "typeVersion": 1,
+          "position": [
+            1250,
+            600
+          ],
+          "credentials": {}
+        },
+        {
+          "parameters": {
+            "chatId": "={{ $('Telegram Trigger (Respuesta Usuario)').item.json.message.chat.id }}",
+            "text": "={{ $json.choices[0].message.content }}"
+          },
+          "id": "a6b7c8d9-e0f1-2345-6789-abcdef123457",
+          "name": "Telegram (Responde con Plan)",
+          "type": "n8n-nodes-base.telegram",
+          "typeVersion": 1.1,
+          "position": [
+            1450,
+            600
+          ],
+          "credentials": {}
+        },
+        {
+          "parameters": {
+            "baseId": "",
+            "tableId": "",
+            "fields": {
+              "columns": [
+                {
+                  "column": "FechaRespuesta",
+                  "value": "={{ $now.toFormat('yyyy-MM-dd HH:mm:ss') }}"
+                },
+                {
+                  "column": "RespuestaUsuario",
+                  "value": "={{ $('Set (Respuesta Procesada)').item.json.respuesta_usuario }}"
+                },
+                {
+                  "column": "PlanGenerado",
+                  "value": "={{ $('OpenAI (Genera Plan de Acción)').item.json.choices[0].message.content }}"
+                },
+                {
+                  "column": "ChatID",
+                  "value": "={{ $('Telegram Trigger (Respuesta Usuario)').item.json.message.chat.id }}"
+                }
+              ]
+            }
+          },
+          "id": "b0c1d2e3-f4a5-b6c7-d8e9-f0a1b2c3d4e5",
+          "name": "Airtable (Registro Plan)",
+          "type": "n8n-nodes-base.airtableAppend",
+          "typeVersion": 1,
+          "position": [
+            1650,
+            600
+          ],
+          "credentials": {}
+        }
+      ],
+      "connections": {
+        "Telegram Trigger (Respuesta Usuario)": {
+          "main": [
+            [
+              {
+                "node": "IF (¿Es audio o texto?)",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "IF (¿Es audio o texto?)": {
+          "main": [
+            [
+              {
+                "node": "OpenAI (Transcribe Audio)",
+                "type": "main",
+                "index": 0
+              }
+            ],
+            [
+              {
+                "node": "Set (Respuesta Procesada)",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "OpenAI (Transcribe Audio)": {
+          "main": [
+            [
+              {
+                "node": "Set (Respuesta Procesada)",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Set (Respuesta Procesada)": {
+          "main": [
+            [
+              {
+                "node": "OpenAI (Genera Plan de Acción)",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "OpenAI (Genera Plan de Acción)": {
+          "main": [
+            [
+              {
+                "node": "Telegram (Responde con Plan)",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Telegram (Responde con Plan)": {
+          "main": [
+            [
+              {
+                "node": "Airtable (Registro Plan)",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      },
+      "settings": {},
+      "id": "workflow_respuesta_usuario",
+      "name": "Respuesta Usuario y Plan (Futuro Millonario)",
+      "tags": []
+    }
+  ]
+}
